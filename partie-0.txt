@@ -1,0 +1,97 @@
+Question 1 : Décrire la procédure correcte pour modifier la configuration du service SSH
+
+Procédure complète étape par étape :
+
+Étape 1 : Créer une sauvegarde du fichier de configuration
+sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup.20251203_194700
+
+Pourquoi ? En cas d'erreur, on peut restaurer rapidement la configuration fonctionnelle.
+
+Étape 2 : Ouvrir une session SSH supplémentaire (CRITIQUE)
+Avant toute modification, on ouvre une deuxième session SSH dans un autre terminal. 
+Cette session de secours nous permettra de corriger les erreurs si la première session se déconnecte.
+
+Étape 3 : Modifier le fichier de configuration
+
+sudo nano /etc/ssh/sshd_config
+# ou
+sudo vim /etc/ssh/sshd_config
+
+Étape 4 : Vérifier la syntaxe du fichier de configuration (ESSENTIEL)
+sudo sshd -t
+
+
+Étape 5 : Recharger le service SSH (PAS restart)
+sudo systemctl reload sshd
+# ou sur certains systèmes
+sudo systemctl reload ssh
+
+Étape 6 : Tester la nouvelle configuration
+Dans votre deuxième session SSH (celle de secours), testez la connexion :
+ssh -p NOUVEAU_PORT user@serveur
+
+Étape 7 : Vérifier que le service fonctionne correctement
+
+sudo systemctl status sshd
+Vérifiez également les logs en temps réel :
+sudo tail -f /var/log/auth.log
+
+
+Étape 8 : Une fois la connexion confirmée
+On peut fermer les anciennes sessions SSH. 
+Bien vouloir garder toujours au moins une session active jusqu'à confirmation complète.
+
+Question 2 : Expliquer le principal risque encouru si cette procédure n'est pas respectée
+
+Le risque majeur : PERTE TOTALE D'ACCÈS AU SERVEUR
+
+Scénario catastrophe détaillé :
+Situation 1 : Redémarrage au lieu de rechargement
+
+# MAUVAISE PRATIQUE ❌
+sudo systemctl restart sshd
+
+Conséquence : Si la configuration contient une erreur :
+Toutes les connexions SSH actives sont coupées immédiatement
+Le service SSH ne redémarre pas à cause de l'erreur
+Vous êtes définitivement bloqué hors du serveur
+Solution : Accès physique au serveur ou console de récupération (si VPS : console web du fournisseur)
+
+Situation 2 : Pas de vérification de syntaxe
+
+# Modification avec une faute de frappe
+Port 22222222222  # Port invalide
+
+PermitRootLogin yse  # Faute de frappe (au lieu de "yes")
+
+Sans sshd -t, ces erreurs ne sont détectées qu'au redémarrage, provoquant un échec du service.
+Situation 3 : Pas de session de secours Si vous modifiez le port SSH de 22 à 2222 et rechargez sans tester depuis une autre session :
+Votre session actuelle reste connectée (elle utilise encore l'ancien port)
+Vous pensez que tout fonctionne
+Vous vous déconnectez
+IMPOSSIBLE de se reconnecter car vous essayez le port 22 qui n'écoute plus
+Autres risques secondaires :
+Perte de données en cours de transfert
+
+
+Si des transferts SCP/SFTP sont en cours, ils seront interrompus
+Interruption de services
+
+
+Les scripts automatisés utilisant SSH échoueront
+Les sauvegardes distantes seront interrompues
+Verrouillage accidentel
+
+
+Exemple : PermitRootLogin no alors que root est le seul utilisateur
+AllowUsers bob alors que vous êtes connecté en tant que alice
+Coûts financiers
+
+
+Sur un VPS cloud, l'accès à la console de récupération peut être payant
+Temps d'indisponibilité du service
+Estimation du temps de récupération :
+Avec console de récupération : 30-60 minutes
+Sans console (serveur physique distant) : Plusieurs heures à plusieurs jours
+Dans le pire cas : Réinstallation complète du système
+
