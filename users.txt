@@ -1,0 +1,6 @@
+# Format: username;default_password;full_name;phone;email;preferred_shell
+jdupont;Pass@2025;Jean Dupont;+237677123456;jean.dupont@students.uy1.cm;/bin/bash
+mtchuente;Secure123!;Marie Tchuente;+237655987654;marie.tchuente@students.uy1.cm;/bin/zsh
+pnkolo;MyPass456;Paul Nkolo;+237699876543;paul.nkolo@students.uy1.cm;/bin/bash
+afouda;Welcome789;Alice Fouda;+237677555444;alice.fouda@students.uy1.cm;/usr/bin/fish
+bnguema;Strong2025;Bernard Nguema;+237655321987;bernard.nguema@students.uy1.cm;/bin/bash
