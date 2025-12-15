@@ -1,275 +1,231 @@
 #!/bin/bash
+# ==========================================
+# Script : create_users.sh
+# TP INF 3611 – Partie 1
+# Auteur : NGUE MBONG André Fitzgerald
+# Version : 2.0 (Optimisée et Corrigée)
+# ==========================================
 
-###########################################
-# Script de création automatique d'utilisateurs
-# INF 3611 - Administration Systèmes et Réseaux
-# Université de Yaoundé I
-###########################################
-
-# Vérification des privilèges root
-if [[ $EUID -ne 0 ]]; then
-   echo "Ce script doit être exécuté en tant que root (sudo)" 
-   exit 1
+# ---------- Vérifications ----------
+if [ "$EUID" -ne 0 ]; then
+  echo "❌ Ce script doit être exécuté en tant que root"
+  exit 1
 fi
 
-# Vérification des paramètres
 if [ $# -ne 2 ]; then
-    echo "Usage: $0 <fichier_utilisateurs> <nom_groupe>"
-    echo "Exemple: $0 users.txt students-inf-361"
-    exit 1
+  echo "Usage: $0 <nom_du_groupe> <fichier_users>"
+  exit 1
 fi
 
-USER_FILE="$1"
-GROUP_NAME="$2"
-LOG_FILE="user_creation_$(date +%Y%m%d_%H%M%S).log"
+GROUP=$1
+USERS_FILE=$2
+LOGFILE="/var/log/create_users_$(date +%Y%m%d_%H%M%S).log"
+
+if [ ! -f "$USERS_FILE" ]; then
+  echo "❌ Fichier $USERS_FILE introuvable"
+  exit 1
+fi
 
 # Fonction de logging
-log_message() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOGFILE"
 }
 
-# Vérification de l'existence du fichier
-if [ ! -f "$USER_FILE" ]; then
-    log_message "ERREUR: Le fichier $USER_FILE n'existe pas"
-    exit 1
-fi
+log "===== DÉBUT DU SCRIPT ====="
+log "Groupe cible: $GROUP"
+log "Fichier source: $USERS_FILE"
 
-log_message "=========================================="
-log_message "Début de l'exécution du script"
-log_message "Fichier source: $USER_FILE"
-log_message "Groupe principal: $GROUP_NAME"
-log_message "=========================================="
-
-# 1. Créer le groupe students-inf-361
-if getent group "$GROUP_NAME" > /dev/null 2>&1; then
-    log_message "Le groupe $GROUP_NAME existe déjà"
+# ---------- Création du groupe principal ----------
+if ! getent group "$GROUP" > /dev/null; then
+  groupadd "$GROUP"
+  log "✓ Groupe $GROUP créé"
 else
-    groupadd "$GROUP_NAME"
-    if [ $? -eq 0 ]; then
-        log_message "✓ Groupe $GROUP_NAME créé avec succès"
-    else
-        log_message "✗ Échec de création du groupe $GROUP_NAME"
-        exit 1
-    fi
+  log "⚠ Groupe $GROUP existe déjà"
 fi
 
-# Fonction pour vérifier et installer un shell
-check_and_install_shell() {
-    local shell_path="$1"
-    local username="$2"
-    
-    # Vérifier si le shell existe
-    if [ -x "$shell_path" ]; then
-        log_message "  Shell $shell_path disponible pour $username"
-        echo "$shell_path"
-        return 0
-    fi
-    
-    # Extraire le nom du shell
-    local shell_name=$(basename "$shell_path")
-    log_message "  Shell $shell_path non trouvé, tentative d'installation..."
-    
-    # Tentative d'installation
-    if command -v apt-get &> /dev/null; then
-        apt-get update -qq && apt-get install -y "$shell_name" &>> "$LOG_FILE"
-    elif command -v yum &> /dev/null; then
-        yum install -y "$shell_name" &>> "$LOG_FILE"
-    elif command -v dnf &> /dev/null; then
-        dnf install -y "$shell_name" &>> "$LOG_FILE"
-    fi
-    
-    # Vérifier si l'installation a réussi
-    if [ -x "$shell_path" ]; then
-        log_message "  ✓ Shell $shell_path installé avec succès"
-        echo "$shell_path"
-        return 0
-    else
-        log_message "  ✗ Installation de $shell_path échouée, utilisation de /bin/bash"
-        echo "/bin/bash"
-        return 1
-    fi
-}
+# ---------- Configuration de la restriction su ----------
+# Méthode PAM (plus robuste que dpkg-statoverride)
+if ! grep -q "pam_succeed_if.so.*notingroup.*$GROUP" /etc/pam.d/su 2>/dev/null; then
+  log "Configuration de la restriction su pour le groupe $GROUP..."
+  
+  # Sauvegarde
+  cp /etc/pam.d/su /etc/pam.d/su.backup_$(date +%Y%m%d) 2>/dev/null
+  
+  # Ajouter la restriction PAM
+  cat >> /etc/pam.d/su << EOF
 
-# Configurer les quotas disque (si non configurés)
-setup_quota() {
-    log_message "Configuration des quotas disque..."
-    
-    # Vérifier si quotatools est installé
-    if ! command -v setquota &> /dev/null; then
-        log_message "  Installation de quota..."
-        if command -v apt-get &> /dev/null; then
-            apt-get install -y quota &>> "$LOG_FILE"
-        elif command -v yum &> /dev/null; then
-            yum install -y quota &>> "$LOG_FILE"
-        fi
-    fi
-    
-    # Activer les quotas sur la partition /home (si nécessaire)
-    if ! grep -q "usrquota" /etc/fstab; then
-        log_message "  Note: Les quotas doivent être activés manuellement dans /etc/fstab"
-        log_message "  Ajoutez 'usrquota,grpquota' aux options de montage de /home"
-    fi
-}
+# Restriction su pour $GROUP (ajouté le $(date))
+auth required pam_succeed_if.so user notingroup $GROUP
+EOF
+  log "✓ Restriction su configurée via PAM"
+else
+  log "⚠ Restriction su déjà configurée"
+fi
 
-# Configuration initiale
-setup_quota
+# ---------- Vérification et installation des outils ----------
+# Installation de quota si nécessaire
+if ! command -v setquota &> /dev/null; then
+  log "Installation de quota..."
+  apt-get update -qq && apt-get install -y quota >> "$LOGFILE" 2>&1
+fi
 
-# Configurer les restrictions su pour le groupe
-configure_su_restriction() {
-    local group="$1"
-    
-    # Modifier /etc/pam.d/su pour restreindre l'accès
-    if ! grep -q "pam_wheel.so.*group=$group" /etc/pam.d/su; then
-        log_message "Configuration de la restriction su pour le groupe $group..."
-        
-        # Créer une sauvegarde
-        cp /etc/pam.d/su /etc/pam.d/su.backup_$(date +%Y%m%d)
-        
-        # Ajouter la restriction
-        echo "# Restriction su pour $group" >> /etc/pam.d/su
-        echo "auth required pam_succeed_if.so user notingroup $group" >> /etc/pam.d/su
-        
-        log_message "✓ Restriction su configurée pour $group"
-    fi
-}
+# ---------- Calcul de la limite mémoire (20% RAM) ----------
+TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+RAM_LIMIT_KB=$((TOTAL_RAM_KB / 5))  # 20%
+log "Limite mémoire calculée: $((RAM_LIMIT_KB/1024)) Mo (20% de $((TOTAL_RAM_KB/1024)) Mo RAM totale)"
 
-configure_su_restriction "$GROUP_NAME"
+# ---------- Lecture du fichier users ----------
+line_num=0
+success_count=0
+error_count=0
 
-# Lecture et traitement du fichier utilisateurs
-line_number=0
 while IFS=';' read -r username password fullname phone email shell || [ -n "$username" ]; do
-    line_number=$((line_number + 1))
+  line_num=$((line_num + 1))
+  
+  # Ignorer lignes vides et commentaires
+  [[ -z "$username" || "$username" =~ ^# ]] && continue
+  
+  log "----------------------------------------"
+  log "Ligne $line_num: Traitement de $username"
+  
+  # Vérification existence utilisateur
+  if id "$username" &>/dev/null; then
+    log "⚠ Utilisateur $username existe déjà – ignoré"
+    continue
+  fi
+  
+  # Vérification et installation du shell
+  if [ ! -x "$shell" ]; then
+    log "  Shell $shell absent, tentative d'installation..."
+    shell_name=$(basename "$shell")
     
-    # Ignorer les lignes vides et les commentaires
-    [[ -z "$username" || "$username" =~ ^# ]] && continue
-    
-    log_message "----------------------------------------"
-    log_message "Traitement de l'utilisateur: $username (ligne $line_number)"
-    
-    # Vérifier si l'utilisateur existe déjà
-    if id "$username" &>/dev/null; then
-        log_message "  ⚠ L'utilisateur $username existe déjà, passage au suivant"
-        continue
+    apt-get update -qq >> "$LOGFILE" 2>&1
+    if apt-get install -y "$shell_name" >> "$LOGFILE" 2>&1 && [ -x "$shell" ]; then
+      log "  ✓ Shell $shell installé"
+    else
+      log "  ✗ Installation échouée, fallback vers /bin/bash"
+      shell="/bin/bash"
     fi
+  fi
+  
+  # Création de l'utilisateur
+  if useradd -m \
+    -s "$shell" \
+    -c "$fullname | Tel:$phone | Email:$email" \
+    -G "$GROUP,sudo" \
+    "$username" 2>> "$LOGFILE"; then
     
-    # 2c. Vérifier et installer le shell si nécessaire
-    final_shell=$(check_and_install_shell "$shell" "$username")
-    
-    # 2. Créer l'utilisateur avec toutes ses informations
-    useradd -m \
-            -s "$final_shell" \
-            -c "$fullname,$phone,$email" \
-            -G "$GROUP_NAME",sudo \
-            "$username"
-    
-    if [ $? -ne 0 ]; then
-        log_message "  ✗ Échec de création de l'utilisateur $username"
-        continue
-    fi
-    
-    log_message "  ✓ Utilisateur $username créé avec succès"
-    log_message "    - Nom complet: $fullname"
-    log_message "    - Téléphone: $phone"
-    log_message "    - Email: $email"
-    log_message "    - Shell: $final_shell"
-    log_message "    - Groupes: $GROUP_NAME, sudo"
-    
-    # 4. Configurer le mot de passe (haché en SHA-512)
-    echo "$username:$password" | chpasswd -c SHA512
-    log_message "  ✓ Mot de passe configuré (SHA-512)"
-    
-    # 5. Forcer le changement de mot de passe à la première connexion
-    chage -d 0 "$username"
-    log_message "  ✓ Changement de mot de passe forcé à la première connexion"
-    
-    # 7. Créer le message de bienvenue personnalisé
-    user_home=$(eval echo ~$username)
-    
-    cat > "$user_home/WELCOME.txt" << EOF
-╔════════════════════════════════════════════════════════════╗
-║                                                            ║
-║          Bienvenue sur le serveur INF 3611                 ║
-║          Université de Yaoundé I                           ║
-║                                                            ║
-╚════════════════════════════════════════════════════════════╝
+    log "  ✓ Utilisateur $username créé"
+  else
+    log "  ✗ Échec création de $username"
+    error_count=$((error_count + 1))
+    continue
+  fi
+  
+  # Mot de passe SHA-512
+  echo "$username:$password" | chpasswd -c SHA512 2>> "$LOGFILE"
+  log "  ✓ Mot de passe configuré (SHA-512)"
+  
+  # Forcer changement du mot de passe
+  chage -d 0 "$username" 2>> "$LOGFILE"
+  log "  ✓ Changement de mot de passe forcé à la première connexion"
+  
+  # Message de bienvenue personnalisé
+  WELCOME="/home/$username/WELCOME.txt"
+  cat > "$WELCOME" << 'EOFWELCOME'
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║        Bienvenue sur le serveur INF 3611 👋              ║
+║        Université de Yaoundé I                            ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
 
+EOFWELCOME
+  
+  cat >> "$WELCOME" << EOF
 Bonjour $fullname !
 
-Vous êtes connecté en tant que: $username
-Date de connexion: \$(date '+%A %d %B %Y à %H:%M:%S')
+Informations de votre compte :
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  👤 Utilisateur : $username
+  📧 Email       : $email
+  📞 WhatsApp    : $phone
+  🖥️  Shell       : $shell
+  📅 Connexion   : \$(date '+%A %d %B %Y à %H:%M:%S')
 
-Informations système:
-- Nom d'hôte: \$(hostname)
-- Système: \$(uname -s) \$(uname -r)
-- Espace disque disponible: \$(df -h ~ | tail -1 | awk '{print \$4}')
+Ressources allouées :
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  💾 Quota disque : 15 Go
+  🧠 Limite RAM   : 20% par processus
+  📂 Répertoire   : /home/$username
 
-⚠️  IMPORTANT:
-- Vous devez changer votre mot de passe à la première connexion
-- Votre quota disque est limité à 15 Go
-- Votre utilisation mémoire par processus est limitée à 20% de la RAM
+⚠️  IMPORTANT :
+  • Vous devez changer votre mot de passe à cette première connexion
+  • Respectez les quotas de ressources
+  • Lisez la charte d'utilisation du serveur
 
-Pour toute assistance: support@inf361.cm
+Pour toute assistance : support@inf361.uy1.cm
 
-════════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
 EOF
-    
-    # Ajouter l'affichage dans .bashrc
-    if ! grep -q "WELCOME.txt" "$user_home/.bashrc"; then
-        echo "" >> "$user_home/.bashrc"
-        echo "# Message de bienvenue" >> "$user_home/.bashrc"
-        echo "if [ -f ~/WELCOME.txt ]; then" >> "$user_home/.bashrc"
-        echo "    cat ~/WELCOME.txt" >> "$user_home/.bashrc"
-        echo "fi" >> "$user_home/.bashrc"
-    fi
-    
-    chown "$username:$username" "$user_home/WELCOME.txt"
-    chmod 644 "$user_home/WELCOME.txt"
-    log_message "  ✓ Message de bienvenue créé"
-    
-    # 8. Configurer la limite d'espace disque (15 Go)
-    if command -v setquota &> /dev/null; then
-        # 15 Go = 15360 Mo (soft limit = hard limit)
-        setquota -u "$username" 14680064 15728640 0 0 -a 2>/dev/null
-        if [ $? -eq 0 ]; then
-            log_message "  ✓ Quota disque configuré: 15 Go"
-        else
-            log_message "  ⚠ Quota non configuré (quotas peut-être non activés sur le système)"
-        fi
-    else
-        log_message "  ⚠ Commande setquota non disponible"
-    fi
-    
-    # 9. Limiter l'utilisation mémoire à 20% de la RAM
-    total_ram_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    ram_limit_kb=$((total_ram_kb / 5))  # 20% de la RAM
-    
-    # Créer un fichier de limites pour cet utilisateur
-    limits_file="/etc/security/limits.d/${username}.conf"
-    cat > "$limits_file" << EOF
-# Limites pour l'utilisateur $username
-# Créé le $(date '+%Y-%m-%d %H:%M:%S')
+  
+  # Ajouter l'affichage dans .bashrc (sans duplication)
+  if ! grep -q "WELCOME.txt" "/home/$username/.bashrc" 2>/dev/null; then
+    cat >> "/home/$username/.bashrc" << 'EOFBASH'
 
+# Message de bienvenue
+if [ -f ~/WELCOME.txt ]; then
+    cat ~/WELCOME.txt
+fi
+EOFBASH
+  fi
+  
+  # Corriger les permissions
+  chown -R "$username:$username" "/home/$username"
+  chmod 644 "$WELCOME"
+  log "  ✓ Message de bienvenue créé"
+  
+  # Quota disque 15 Go (15360 Mo = 15728640 Ko)
+  # Soft limit: 14 Go, Hard limit: 15 Go
+  if setquota -u "$username" 14680064 15728640 0 0 -a 2>> "$LOGFILE"; then
+    log "  ✓ Quota disque configuré: 15 Go"
+  else
+    log "  ⚠ Quota non configuré (vérifiez que les quotas sont activés sur le système)"
+  fi
+  
+  # Limite mémoire 20% (via limits.d - meilleure pratique)
+  LIMITS_FILE="/etc/security/limits.d/${username}.conf"
+  cat > "$LIMITS_FILE" << EOF
+# Limites pour $username (créé le $(date '+%Y-%m-%d'))
 # Limite mémoire virtuelle à 20% de la RAM totale
-$username        hard    as              $ram_limit_kb
-$username        soft    as              $ram_limit_kb
+$username        hard    as              $RAM_LIMIT_KB
+$username        soft    as              $RAM_LIMIT_KB
 
-# Autres limites de sécurité
+# Limites additionnelles de sécurité
 $username        hard    nproc           100
 $username        soft    nproc           80
+$username        hard    nofile          1024
+$username        soft    nofile          512
 EOF
-    
-    log_message "  ✓ Limite mémoire configurée: 20% RAM (~$((ram_limit_kb/1024)) Mo)"
-    
-done < "$USER_FILE"
+  log "  ✓ Limite mémoire configurée: $((RAM_LIMIT_KB/1024)) Mo"
+  
+  success_count=$((success_count + 1))
+  log "  ✅ Utilisateur $username créé avec succès"
+  
+done < "$USERS_FILE"
 
-log_message "=========================================="
-log_message "Fin de l'exécution du script"
-log_message "Résumé:"
-log_message "  - Groupe créé: $GROUP_NAME"
-log_message "  - Fichier de log: $LOG_FILE"
-log_message "=========================================="
+# ---------- Résumé final ----------
+log "=========================================="
+log "===== FIN DU SCRIPT ====="
+log "Statistiques:"
+log "  ✓ Utilisateurs créés avec succès : $success_count"
+log "  ✗ Erreurs                        : $error_count"
+log "  📁 Fichier de log                : $LOGFILE"
+log "=========================================="
 
 echo ""
-echo "✓ Script terminé avec succès!"
-echo "  Consultez le fichier $LOG_FILE pour les détails"
+echo "✅ Script terminé !"
+echo "   Utilisateurs créés : $success_count"
+echo "   Erreurs            : $error_count"
+echo "   Log complet        : $LOGFILE"
 echo ""
