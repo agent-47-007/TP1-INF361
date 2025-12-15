@@ -95,3 +95,228 @@ Avec console de récupération : 30-60 minutes
 Sans console (serveur physique distant) : Plusieurs heures à plusieurs jours
 Dans le pire cas : Réinstallation complète du système
 
+Question 3 : Citer et justifier au moins cinq paramètres de sécurité du serveur SSH
+
+Je vais vous présenter 7 paramètres essentiels (vous devez en choisir au moins 5) avec justifications détaillées.
+
+Paramètre 1 : PermitRootLogin
+
+# Dans /etc/ssh/sshd_config
+PermitRootLogin no
+
+Justification détaillée :
+Risque : Le compte root est la cible n°1 des attaques par force brute car :
+
+Son nom est connu (toujours "root")
+Il a tous les privilèges
+Les attaquants n'ont qu'à deviner le mot de passe
+Impact de l'attaque : Si un attaquant obtient l'accès root, il contrôle totalement le système :
+
+
+Installation de backdoors
+Vol de données
+Destruction du système
+Utilisation du serveur pour des activités malveillantes
+
+Bonne pratique :
+
+Créer un utilisateur standard avec des privilèges sudo
+Se connecter d'abord avec cet utilisateur
+Utiliser sudo pour les commandes nécessitant des privilèges
+
+Exemple de logs d'attaque :
+Failed password for root from 192.168.1.100 port 45678 ssh2
+Failed password for root from 192.168.1.100 port 45679 ssh2
+Failed password for root from 192.168.1.100 port 45680 ssh2
+
+
+Paramètre 2 : Port
+# Dans /etc/ssh/sshd_config
+Port 2222
+
+Justification détaillée :
+Risque : Le port 22 est scanné en permanence par des bots automatisés :
+
+Shodan et autres moteurs de recherche indexent les ports 22 ouverts
+Des millions de tentatives de connexion automatiques chaque jour
+Scripts Kiddies et botnets ciblent massivement le port par défaut
+Réduction des attaques : Selon des études, changer le port réduit de 90-95% les tentatives d'intrusion automatisées
+
+
+Statistiques réelles :
+
+Port 22 : ~5000 tentatives de connexion/jour
+Port 2222 : ~50 tentatives de connexion/jour
+
+Choix du port :
+
+Évitez les ports 1-1023 (privilégiés, nécessitent root)
+Choisissez entre 1024-65535
+
+Évitez les ports courants : 8080, 3306, 5432
+Exemple recommandé : 2222, 2200, 22000
+⚠️ Attention : Ce n'est pas une sécurité absolue, mais une couche supplémentaire ("security by obscurity")
+
+Paramètre 3 : PasswordAuthentication
+
+# Dans /etc/ssh/sshd_config
+PasswordAuthentication no
+PubkeyAuthentication yes
+
+Justification détaillée :
+Faiblesse des mots de passe :
+
+Vulnérables aux attaques par dictionnaire
+Vulnérables aux attaques par force brute
+Peuvent être compromis (phishing, keyloggers)
+Souvent réutilisés sur plusieurs services
+Force des clés SSH :
+
+Clé RSA 4096 bits ≈ équivalent à un mot de passe de 600+ caractères
+Impossible à deviner par force brute
+Stockée localement, jamais transmise sur le réseau
+Peut être protégée par une passphrase
+Comparaison temps de crack :
+Mot de passe 8 caractères complexe : quelques heures à quelques jours
+Clé RSA 2048 bits : plusieurs milliards d'années
+Clé RSA 4096 bits : impossible avec la technologie actuelle
+
+Procédure de mise en place :
+# 1. Générer une paire de clés (côté client)
+ssh-keygen -t rsa -b 4096 -C "votre_email@example.com"
+
+# 2. Copier la clé publique sur le serveur
+ssh-copy-id -p PORT user@serveur
+
+# 3. Tester la connexion avec la clé
+ssh -p PORT user@serveur
+
+# 4. SEULEMENT APRÈS confirmation, désactiver les mots de passe
+PasswordAuthentication no
+
+
+Paramètre 4 : MaxAuthTries
+# Dans /etc/ssh/sshd_config
+MaxAuthTries 3
+
+Justification détaillée :
+Valeur par défaut : 6 tentatives (trop permissif)
+
+
+Attaques par force brute :
+
+
+Les bots testent des milliers de mots de passe
+Chaque tentative supplémentaire augmente les chances de succès
+Limiter à 3 tentatives réduit drastiquement l'efficacité des attaques
+Calcul probabiliste :
+
+Avec 6 tentatives : probabilité de succès × 2
+Avec 3 tentatives : probabilité réduite de moitié
+Avec 1 tentative : quasiment impossible
+
+
+Expérience utilisateur :
+
+3 tentatives suffisent largement pour un utilisateur légitime
+En cas d'erreur, attendre quelques secondes et réessayer
+
+Complément recommandé : Fail2Ban
+# Installer Fail2Ban pour bannir temporairement après échecs
+sudo apt-get install fail2ban
+
+# Configuration pour SSH
+# Bannir pendant 10 minutes après 3 échecs
+
+
+Paramètre 5 : Protocol
+# Dans /etc/ssh/sshd_config
+Protocol 2
+
+Justification détaillée :
+SSH Protocol 1 (obsolète) :
+
+Vulnérabilités cryptographiques connues et exploitables
+Failles de sécurité : insertion de commandes, attaques man-in-the-middle
+Algorithmes de chiffrement faibles (DES, 3DES)
+Publié en 1995, abandonné officiellement
+SSH Protocol 2 (moderne) :
+
+Publié en 2006, constamment mis à jour
+Chiffrement fort : AES-256, ChaCha20
+Protection contre les attaques par rejeu
+Intégrité des données avec HMAC
+Échange de clés Diffie-Hellman
+Note : Sur les versions récentes d'OpenSSH (7.0+), le Protocol 1 n'est même plus supporté, ce paramètre n'est donc plus nécessaire. Mais pour les anciens systèmes, c'est crucial.
+
+Paramètre 6 : AllowUsers / AllowGroups
+# Dans /etc/ssh/sshd_config
+AllowUsers alice bob charlie
+# OU
+AllowGroups ssh-users
+
+Justification détaillée :
+Principe du moindre privilège :
+
+
+Par défaut, TOUS les utilisateurs du système peuvent se connecter en SSH
+Cela inclut les comptes de service (www-data, mysql, etc.)
+Limiter explicitement qui peut se connecter réduit la surface d'attaque
+Avantage de AllowGroups :
+
+ # Créer un groupe dédié SSH
+sudo groupadd ssh-users
+
+# Ajouter les utilisateurs autorisés
+sudo usermod -aG ssh-users alice
+sudo usermod -aG ssh-users bob
+
+# Dans sshd_config
+AllowGroups ssh-users
+
+
+Cas d'utilisation réel :
+
+
+Serveur avec 50 comptes utilisateurs
+Seulement 5 administrateurs ont besoin d'accès SSH
+Les 45 autres utilisateurs n'ont besoin que de services web/FTP
+Alternative : DenyUsers / DenyGroups
+# Interdire spécifiquement certains utilisateurs
+DenyUsers www-data mysql nobody
+
+
+Paramètre 7 : ClientAliveInterval et ClientAliveCountMax
+# Dans /etc/ssh/sshd_config
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+Justification détaillée :
+Risque des sessions inactives :
+
+
+Un utilisateur part en réunion, laisse sa session ouverte
+Un collègue ou attaquant peut accéder à la machine
+Les sessions zombie consomment des ressources
+Fonctionnement :
+
+
+ClientAliveInterval 300 : envoie un message au client toutes les 5 minutes (300 secondes)
+ClientAliveCountMax 2 : attend 2 réponses manquées
+Déconnexion après : 300 × 2 = 600 secondes = 10 minutes d'inactivité
+Calcul du timeout :
+
+ Timeout total = ClientAliveInterval × ClientAliveCountMax
+
+Exemples :
+300 × 2 = 600s (10 min) - recommandé pour la production
+600 × 1 = 600s (10 min) - alternative
+1800 × 2 = 3600s (60 min) - pour les environnements de développement
+
+
+Impact sur la sécurité :
+
+
+Réduit le risque de "session hijacking"
+Force les utilisateurs à se reconnecter régulièrement
+Libère les ressources serveur
