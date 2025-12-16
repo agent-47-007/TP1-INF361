@@ -1,0 +1,220 @@
+group_name: students-inf-361
+ssh_port: 22
+
+users:
+  - username: fitzgerald_ngue
+    password: "01/08/2003"
+    fullname: "NGUE MBONG ANDRE FITZGERALD"
+    phone: "693338107"
+    email: "fitzgerald.ngue@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: fouekeu
+    password: gaston2006
+    fullname: "TEMATIO FOUEKEU ERNEST AUBIN"
+    phone: "652029738"
+    email: "aubin.tematio@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: klebertsonke
+    password: "N@ruto2005"
+    fullname: "SONKE KAMGHA MAXIME KLEBERT"
+    phone: "692452313"
+    email: "klebert.sonke@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: bernardmemong
+    password: memong20
+    fullname: "MEMONG ME NAMA BERNARD EMMANUEL"
+    phone: "695427868"
+    email: "emmanuel.memong@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: jtf
+    password: "vps@teste"
+    fullname: "JUNIOR TEMDEMNOU FABIEN"
+    phone: "693480889"
+    email: "fabien.junior@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: daniel
+    password: Daniel2685
+    fullname: "KAMGAING DANIEL ARISTIDE"
+    phone: "+237683934452"
+    email: "aristide.kamgaing@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: idriss
+    password: "server@361"
+    fullname: "TCHOUNKEU TCHOUNKEU IDRISS LE ROY"
+    phone: "656739125"
+    email: "idrissoulaplace@gmail.com"
+    shell: /bin/bash
+
+  - username: kaezer
+    password: "MiguelPapou70@"
+    fullname: "AZAB A RANGA FRANCK MIGUEL"
+    phone: "686826745"
+    email: "miguel.azab@fasciences-uy1.cm"
+    shell: /bin/zsh
+
+  - username: lucy
+    password: "#NeverGiveUp"
+    fullname: "DJOUTA WAMEGNE LUCIANA"
+    phone: "678346412"
+    email: "luciana.djouta@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: karisuma
+    password: karisuma
+    fullname: "NJOYA NJOYA YASSIN ARAFAT"
+    phone: "683062952"
+    email: "arafat.njoya23@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: makune
+    password: Pass17
+    fullname: "MAKUNE KOUGOUM BIJOËL"
+    phone: "693560524"
+    email: "makunebijoel@gmail.com"
+    shell: /bin/bash
+
+  - username: aminatou
+    password: "123456"
+    fullname: "AMINATOU BABA"
+    phone: "658812192"
+    email: "baba.aminatou@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: victoire_sibepon
+    password: victoire_user28
+    fullname: "SI'BEPON NOUAYE DEBORA VICTOIRE"
+    phone: "656284440"
+    email: "victoire.sibepon@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: basileking
+    password: Basileking237
+    fullname: "BASSILEKIN JEAN SIMONET"
+    phone: "672458198"
+    email: "jean.bassilekin@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: kwata
+    password: KWATA
+    fullname: "KWATA MARIE-RENE"
+    phone: "659721917"
+    email: "marie-rene.kwata@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: nehemie_hapsibisie
+    password: Pass10
+    fullname: "HAPSIBISIE KOUAYEP NEHEMIE"
+    phone: "652052602"
+    email: "nehemie.hapsibisie@gmail.com"
+    shell: /bin/bash
+
+  - username: joumpi
+    password: Clau0606
+    fullname: "JOUMPI NGUEGEUM ANGE CHARLÈNE"
+    phone: "695266577"
+    email: "charlene.joumpi@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: melissa
+    password: meli2k04
+    fullname: "MANGUI MPANGOL FÉLICITÉ MÉLISSA"
+    phone: "686292790"
+    email: "felicite.mangui@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: steve_tamwo
+    password: kjkszpj
+    fullname: "TAMWO MOTCHEYO STEVE SOREL"
+    phone: "650536195"
+    email: "motcheyostevesoreltamwo@gmail.com"
+    shell: /bin/bash
+
+  - username: magne
+    password: "audray@2003"
+    fullname: "MAGNE NZALLE MARCELLE AUDRAY"
+    phone: "657628303"
+    email: "audray.magne@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: yvananehoung
+    password: "50294605"
+    fullname: "ANEHOUNG MEINKONDEM YVAN BLANC"
+    phone: "650294605"
+    email: "yvananehoung@gmail.com"
+    shell: /bin/bash
+
+  - username: sofodidier
+    password: secret29
+    fullname: "SOFO DIDIER BRASSY"
+    phone: "659815336"
+    email: "sofodidier@gmail.com"
+    shell: /bin/bash
+
+  - username: rael_ngangoum
+    password: Pass22
+    fullname: "NGANGOUM DEUGOUE GILLES RAEL"
+    phone: "651465846"
+    email: "deugouegilles@gmail.com"
+    shell: /bin/bash
+
+  - username: moussa25
+    password: Nguebitigue2000
+    fullname: "TIGUE MOUSSA MADARIYA"
+    phone: "693606003"
+    email: "moussatigue25@yahoo.com"
+    shell: /bin/bash
+
+  - username: james_benfiang6
+    password: Pass6
+    fullname: "BENFIANG MICHAEL JAMES"
+    phone: "+237698782086"
+    email: "benfiangmichael@gmail.com"
+    shell: /bin/bash
+
+  - username: jean9
+    password: pass9
+    fullname: "EFFA MEBENGA JEAN"
+    phone: "653775012"
+    email: "jean.effa@ens-uy1.cm"
+    shell: /bin/bash
+
+  - username: liliane_bitak
+    password: password7
+    fullname: "BITAK AUDREY LILIANE"
+    phone: "690262737"
+    email: "audreybitak@gmail.com"
+    shell: /bin/bash
+
+  - username: ngoko
+    password: WCJR677468
+    fullname: "NGOKO ANGELINE"
+    phone: "693534224"
+    email: "angeline.ngoko@facsciences-uy1.cm"
+    shell: /bin/bash
+
+  - username: roostkiller
+    password: "MIGUEl@237"
+    fullname: "KENGNI CHEKEM FREED MIGUEL"
+    phone: "659002664"
+    email: "freedchekem745@gmail.com"
+    shell: /bin/bash
+
+  - username: bello-dev
+    password: "passwodrs!"
+    fullname: "BELL AQIL"
+    phone: "686301238"
+    email: "aqil.bell@facsciences-uy1.cm"
+    shell: /bin/zsh
+
+  - username: user26
+    password: Ketsia123
+    fullname: "NONO NGUEPKAP KETSIA MARIELLE"
+    phone: "683498628"
+    email: "nonomarielle06@gmail.com"
+    shell: /bin/bash
