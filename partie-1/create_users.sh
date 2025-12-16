@@ -3,7 +3,8 @@
 # Script : create_users.sh
 # TP INF 3611 – Partie 1
 # Auteur : NGUE MBONG André Fitzgerald
-# Version : 2.0 (Optimisée et Corrigée)
+# Usage: sudo ./create_users.sh <nom_du_groupe> <fichier_users>
+# Exemple: sudo ./create_users.sh students-inf-361 users.txt
 # ==========================================
 
 # ---------- Vérifications ----------
