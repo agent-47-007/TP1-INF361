@@ -15,6 +15,7 @@ partie-3/
 ├── outputs.tf
 └── README.md
 
-## Initialisation
+## Initialisation && execution
 ```bash
 terraform init
+terraform apply
