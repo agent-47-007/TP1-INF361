@@ -1,6 +1,34 @@
-# Format: username;default_password;full_name;phone;email;preferred_shell
-jdupont;Pass@2025;Jean Dupont;+237677123456;jean.dupont@students.uy1.cm;/bin/bash
-mtchuente;Secure123!;Marie Tchuente;+237655987654;marie.tchuente@students.uy1.cm;/bin/zsh
-pnkolo;MyPass456;Paul Nkolo;+237699876543;paul.nkolo@students.uy1.cm;/bin/bash
-afouda;Welcome789;Alice Fouda;+237677555444;alice.fouda@students.uy1.cm;/usr/bin/fish
-bnguema;Strong2025;Bernard Nguema;+237655321987;bernard.nguema@students.uy1.cm;/bin/bash
+# Fichier users.txt - Format: username;password;full_name;phone;email;shell
+# Généré automatiquement depuis Login et mot de passe.xlsx
+
+fitzgerald_ngue;01/08/2003;NGUE MBONG ANDRE FITZGERALD;693338107;fitzgerald.ngue@facsciences-uy1.cm;/bin/bash
+fouekeu;gaston2006;tematio fouekeu ernest aubin;652029738;aubin.tematio@facsciences-uy1.cm;/bin/bash
+klebertsonke;N@ruto2005;SONKE KAMGHA MAXIME KLEBERT;692452313;klebert.sonke@facsciences-uy1.cm;/bin/bash
+bernardmemong;memong20;Memong Me Nama Bernard Emmanuel;695427868;emmanuel.memong@facsciences-uy1.cm;/bin/bash
+jtf;vps@teste;JUNIOR TEMDEMNOU FABIEN;693480889;fabien.junior@facsciences-uy1.cm;/bin/bash
+daniel;Daniel2685;KAMGAING DANIEL ARISTIDE;+237 683934452;aristide.kamgaing@facsciences-uy1.cm;/bin/bash
+idriss;server@361;TCHOUNKEU TCHOUNKEU IDRISS LE ROY;656739125;idrissoulaplace@gmail.com;/bin/bash
+kaezer;MiguelPapou70@;AZAB A RANGA FRANCK MIGUEL;686826745;miguel.azab@fasciences-uy1.cm;/bin/zsh
+lucy;#NeverGiveUp;DJOUTA WAMEGNE LUCIANA;678346412;luciana.djouta@facsciences-uy1.cm;/bin/bash
+karisuma;karisuma;NJOYA NJOYA YASSIN ARAFAT;683062952;arafat.njoya23@facsciences-uy1.cm;/bin/bash
+makune;Pass17;Makune Kougoum Bijoël;693560524;makunebijoel@gmail.com;/bin/bash
+aminatou;123456;Aminatou Baba;658812192;baba.aminatou@facsciences-uy1.cm;/bin/bash
+victoire_sibepon;victoire_user28;SI'BEPON NOUAYE DEBORA VICTOIRE;656284440;victoire.sibepon@facsciences-uy1.cm;/bin/bash
+basileking;Basileking237;Bassilekin jean simonet;672458198;jean.bassilekin@facsciences-uy1.cm;/bin/bash
+kwata;KWATA;KWATA MARIE-RENE;659721917;marie-rene.kwata@facsciences-uy1.cm;/bin/bash
+nehemie_hapsibisie;Pass10;HAPSIBISIE KOUAYEP NEHEMIE;652052602;nehemie.hapsibisie@gmail.com;/bin/bash
+joumpi;Clau0606;JOUMPI NGUEGEUM ANGE CHARLÈNE;695266577;Charlene.joumpi@facsciences-uy1.cm;/bin/bash
+melissa;meli2k04;MANGUI MPANGOL FÉLICITÉ MÉLISSA;686292790;felicite.mangui@facsciences-uy1.cm;/bin/bash
+steve_tamwo;kjkszpj;TAMWO MOTCHEYO STEVE SOREL;650536195;motcheyostevesoreltamwo@gmail.com;/bin/bash
+magne;audray@2003;MAGNE NZALLE MARCELLE AUDRAY;657628303;audray.magne@facsciences-uy1.cm;/bin/bash
+yvananehoung;50294605;ANEHOUNG MEINKONDEM YVAN BLANC;650294605;yvananehoung@gmail.com;/bin/bash
+sofodidier;secret29;sofo didier brassy;659815336;sofodidier@gmail.com;/bin/bash
+rael_ngangoum;Pass22;NGANGOUM DEUGOUE GILLES RAEL;651465846;deugouegilles@gmail.com;/bin/bash
+moussa25;Nguebitigue2000;TIGUE MOUSSA MADARIYA;693606003;moussatigue25@yahoo.com;/bin/bash
+james_benfiang6;Pass6;BENFIANG Michael James;+237698782086;benfiangmichael@gmail.com;/bin/bash
+jean9;pass9;Effa mebenga Jean;653775012;jean.effa@ens-uy1.cm;/bin/bash
+liliane_bitak;password7;Bitak Audrey Liliane;690262737;audreybitak@gmail.com;/bin/bash
+ngoko;WCJR677468;NGOKO ANGELINE;693534224;angeline.ngoko@facsciences-uy1.cm;/bin/bash
+roostkiller;MIGUEl@237;KENGNI CHEKEM FREED MIGUEL;659002664;freedchekem745@gmail.com;/bin/bash
+bello-dev;passwodrs!;BELL AQIL;686301238;aqil.bell@facsciences-uy1.cm;/bin/zsh
+user26@37.60.250.220;Ketsia123;NONO NGUEPKAP KETSIA MARIELLE;683498628;nonomarielle06@gmail.com;/bin/bash
