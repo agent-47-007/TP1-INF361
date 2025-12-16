@@ -7,11 +7,11 @@ variable "group_name" {
 variable "script_path" {
   description = "Chemin vers le script Bash"
   type        = string
-  default     = "../part1-bash/create_users.sh"
+  default     = "../partie-1/create_users.sh"
 }
 
 variable "users_file" {
   description = "Chemin vers le fichier des utilisateurs"
   type        = string
-  default     = "../part1-bash/users.txt"
+  default     = "../partie-1/users.txt"
 }
