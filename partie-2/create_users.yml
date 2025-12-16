@@ -1,0 +1,452 @@
+---
+###############################################################################
+# Playbook Ansible: create_users.yml
+# Description: Automatisation de la création d'utilisateurs avec Ansible
+# TP INF 3611 - Administration Systèmes et Réseaux - Partie 2
+# Université de Yaoundé I - Faculté des Sciences
+###############################################################################
+
+- name: Création et configuration automatisée des utilisateurs Linux
+  hosts: vps_servers
+  become: yes
+  vars:
+    group_name: "students-inf-361"
+    users_file: "users.yml"
+    log_file: "/var/log/ansible_create_users_{{ ansible_date_time.epoch }}.log"
+    total_ram_mb: "{{ (ansible_memtotal_mb | int) }}"
+    ram_limit_mb: "{{ (total_ram_mb | int * 0.20) | int }}"
+    ram_limit_kb: "{{ (ram_limit_mb | int * 1024) | int }}"
+    disk_quota_gb: 15
+    disk_quota_soft_kb: 14680064  # 14 Go en Ko
+    disk_quota_hard_kb: 15728640  # 15 Go en Ko
+    
+    # Configuration email
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    smtp_user: "{{ vault_smtp_user | default('votre-email@gmail.com') }}"
+    smtp_password: "{{ vault_smtp_password | default('votre-mot-de-passe-app') }}"
+    from_email: "admin-inf361@uy1.cm"
+    
+    # Configuration serveur SSH
+    ssh_port: "{{ ansible_port | default(22) }}"
+    server_ip: "{{ ansible_default_ipv4.address }}"
+
+  tasks:
+    # ========================================================================
+    # PARTIE 0: Initialisation et préparation
+    # ========================================================================
+    
+    - name: "[0/12] Afficher les informations de démarrage"
+      debug:
+        msg:
+          - "========================================================================="
+          - "        DÉBUT DU PLAYBOOK ANSIBLE - CRÉATION D'UTILISATEURS"
+          - "========================================================================="
+          - "Date d'exécution: {{ ansible_date_time.date }} {{ ansible_date_time.time }}"
+          - "Serveur cible: {{ inventory_hostname }}"
+          - "Adresse IP: {{ server_ip }}"
+          - "Groupe cible: {{ group_name }}"
+          - "RAM totale: {{ total_ram_mb }} Mo"
+          - "Limite RAM par utilisateur: {{ ram_limit_mb }} Mo (20%)"
+          - "Quota disque par utilisateur: {{ disk_quota_gb }} Go"
+          - "========================================================================="
+
+    - name: "[1/12] Installer les paquets système nécessaires"
+      apt:
+        name:
+          - quota
+          - quotatool
+          - libpam-modules
+          - mailutils
+          - python3-pip
+        state: present
+        update_cache: yes
+      register: packages_install
+
+    - name: "[1/12] Installer le module Python pour l'envoi d'emails"
+      pip:
+        name:
+          - secure-smtplib
+        state: present
+
+    # ========================================================================
+    # PARTIE 1: Création du groupe principal
+    # ========================================================================
+    
+    - name: "[2/12] Créer le groupe principal {{ group_name }}"
+      group:
+        name: "{{ group_name }}"
+        state: present
+      register: group_creation
+
+    - name: "[2/12] Log - Groupe créé"
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "[{{ ansible_date_time.iso8601 }}] Groupe {{ group_name }} créé"
+        create: yes
+      when: group_creation.changed
+
+    # ========================================================================
+    # PARTIE 2: Configuration restriction 'su'
+    # ========================================================================
+    
+    - name: "[3/12] Créer le groupe wheel (pour autorisation su)"
+      group:
+        name: wheel
+        state: present
+
+    - name: "[3/12] Configurer PAM pour restreindre su au groupe wheel"
+      lineinfile:
+        path: /etc/pam.d/su
+        line: "auth required pam_wheel.so use_uid group=wheel"
+        insertafter: "^#.*pam_wheel"
+        state: present
+        backup: yes
+      register: pam_su_config
+
+    - name: "[3/12] Log - Restriction su configurée"
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "[{{ ansible_date_time.iso8601 }}] Restriction 'su' configurée via PAM"
+        create: yes
+      when: pam_su_config.changed
+
+    # ========================================================================
+    # PARTIE 3: Chargement des utilisateurs depuis users.yml
+    # ========================================================================
+    
+    - name: "[4/12] Charger la liste des utilisateurs depuis {{ users_file }}"
+      include_vars:
+        file: "{{ users_file }}"
+        name: users_data
+
+    - name: "[4/12] Afficher le nombre d'utilisateurs à créer"
+      debug:
+        msg: "{{ users_data.users | length }} utilisateurs à traiter"
+
+    # ========================================================================
+    # PARTIE 4: Boucle de création des utilisateurs
+    # ========================================================================
+    
+    - name: "[5/12] Créer et configurer les utilisateurs"
+      block:
+        - name: "[5a] Vérifier et installer le shell demandé"
+          apt:
+            name: "{{ item.shell | basename }}"
+            state: present
+          loop: "{{ users_data.users }}"
+          when: item.shell != "/bin/bash"
+          ignore_errors: yes
+
+        - name: "[5b] Créer les utilisateurs avec leurs paramètres"
+          user:
+            name: "{{ item.username }}"
+            comment: "{{ item.full_name }},{{ item.phone }},{{ item.email }}"
+            shell: "{{ item.shell }}"
+            groups: "{{ group_name }},sudo"
+            append: yes
+            create_home: yes
+            state: present
+          loop: "{{ users_data.users }}"
+          register: user_creation
+
+        - name: "[5c] Configurer le mot de passe (SHA-512)"
+          shell: |
+            echo "{{ item.username }}:{{ item.password }}" | chpasswd -c SHA512
+          loop: "{{ users_data.users }}"
+          no_log: true
+
+        - name: "[5d] Forcer le changement de mot de passe à la première connexion"
+          shell: chage -d 0 "{{ item.username }}"
+          loop: "{{ users_data.users }}"
+
+        - name: "[5e] Log - Utilisateurs créés"
+          lineinfile:
+            path: "{{ log_file }}"
+            line: "[{{ ansible_date_time.iso8601 }}] Utilisateur {{ item.username }} créé avec succès"
+            create: yes
+          loop: "{{ users_data.users }}"
+
+    # ========================================================================
+    # PARTIE 5: Message de bienvenue personnalisé
+    # ========================================================================
+    
+    - name: "[6/12] Créer les messages de bienvenue personnalisés"
+      template:
+        src: templates/welcome.j2
+        dest: "/home/{{ item.username }}/WELCOME.txt"
+        owner: "{{ item.username }}"
+        group: "{{ group_name }}"
+        mode: '0644'
+      loop: "{{ users_data.users }}"
+
+    - name: "[6/12] Configurer l'affichage automatique du message dans .bashrc"
+      blockinfile:
+        path: "/home/{{ item.username }}/.bashrc"
+        block: |
+          # Message de bienvenue automatique
+          if [ -f ~/WELCOME.txt ]; then
+              cat ~/WELCOME.txt
+              echo ""
+          fi
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - WELCOME MESSAGE"
+        create: yes
+        owner: "{{ item.username }}"
+        group: "{{ group_name }}"
+        mode: '0644'
+      loop: "{{ users_data.users }}"
+
+    # ========================================================================
+    # PARTIE 6: Configuration des quotas disque
+    # ========================================================================
+    
+    - name: "[7/12] Vérifier si les quotas sont activés"
+      command: quotaon -p /
+      register: quota_status
+      changed_when: false
+      failed_when: false
+
+    - name: "[7/12] Initialiser les quotas si nécessaire"
+      block:
+        - name: "Créer les fichiers de quotas"
+          command: quotacheck -cugm /
+          when: "'off' in quota_status.stdout or quota_status.rc != 0"
+          ignore_errors: yes
+
+        - name: "Activer les quotas"
+          command: quotaon -v /
+          when: "'off' in quota_status.stdout or quota_status.rc != 0"
+          ignore_errors: yes
+
+    - name: "[7/12] Configurer les quotas disque (15 Go) pour chaque utilisateur"
+      shell: |
+        setquota -u {{ item.username }} {{ disk_quota_soft_kb }} {{ disk_quota_hard_kb }} 0 0 -a
+      loop: "{{ users_data.users }}"
+      ignore_errors: yes
+
+    - name: "[7/12] Log - Quotas configurés"
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "[{{ ansible_date_time.iso8601 }}] Quota disque ({{ disk_quota_gb }} Go) configuré pour {{ item.username }}"
+        create: yes
+      loop: "{{ users_data.users }}"
+
+    # ========================================================================
+    # PARTIE 7: Configuration des limites mémoire
+    # ========================================================================
+    
+    - name: "[8/12] Créer les fichiers de limites mémoire pour chaque utilisateur"
+      template:
+        src: templates/limits.j2
+        dest: "/etc/security/limits.d/{{ item.username }}.conf"
+        owner: root
+        group: root
+        mode: '0644'
+      loop: "{{ users_data.users }}"
+
+    - name: "[8/12] Log - Limites mémoire configurées"
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "[{{ ansible_date_time.iso8601 }}] Limite mémoire ({{ ram_limit_mb }} Mo) configurée pour {{ item.username }}"
+        create: yes
+      loop: "{{ users_data.users }}"
+
+    # ========================================================================
+    # PARTIE 8: Envoi des emails de notification
+    # ========================================================================
+    
+    - name: "[9/12] Générer la commande SSH pour chaque utilisateur"
+      set_fact:
+        ssh_command: "ssh {{ item.username }}@{{ server_ip }} -p {{ ssh_port }}"
+        ssh_copy_id_linux: "ssh-copy-id -i ~/.ssh/id_rsa.pub {{ item.username }}@{{ server_ip }} -p {{ ssh_port }}"
+        ssh_copy_id_windows: "type %USERPROFILE%\\.ssh\\id_rsa.pub | ssh {{ item.username }}@{{ server_ip }} -p {{ ssh_port }} \"cat >> ~/.ssh/authorized_keys\""
+        ssh_copy_id_mac: "cat ~/.ssh/id_rsa.pub | ssh {{ item.username }}@{{ server_ip }} -p {{ ssh_port }} \"mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys\""
+      loop: "{{ users_data.users }}"
+      register: ssh_commands
+
+    - name: "[9/12] Envoyer un email personnalisé à chaque utilisateur"
+      mail:
+        host: "{{ smtp_host }}"
+        port: "{{ smtp_port }}"
+        username: "{{ smtp_user }}"
+        password: "{{ smtp_password }}"
+        to: "{{ item.email }}"
+        from: "{{ from_email }}"
+        subject: "🎓 Votre compte sur le serveur INF 3611 est prêt !"
+        subtype: html
+        body: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <style>
+                  body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                  .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                  .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                  .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+                  .info-box { background: white; padding: 20px; margin: 20px 0; border-left: 4px solid #667eea; border-radius: 5px; }
+                  .command { background: #2d3748; color: #68d391; padding: 15px; border-radius: 5px; font-family: 'Courier New', monospace; margin: 10px 0; overflow-x: auto; }
+                  .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+                  h2 { color: #667eea; }
+                  .warning { background: #fff5f5; border-left: 4px solid #fc8181; padding: 15px; margin: 20px 0; border-radius: 5px; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <div class="header">
+                      <h1>🎓 Bienvenue sur le serveur INF 3611</h1>
+                      <p>Université de Yaoundé I - Faculté des Sciences</p>
+                  </div>
+                  
+                  <div class="content">
+                      <p>Bonjour <strong>{{ item.full_name }}</strong>,</p>
+                      
+                      <p>Votre compte utilisateur a été créé avec succès sur notre serveur de Travaux Pratiques. Vous pouvez maintenant vous connecter et commencer à travailler.</p>
+                      
+                      <div class="info-box">
+                          <h2>📋 Informations de connexion</h2>
+                          <ul>
+                              <li><strong>Adresse IP du serveur:</strong> {{ server_ip }}</li>
+                              <li><strong>Port SSH:</strong> {{ ssh_port }}</li>
+                              <li><strong>Nom d'utilisateur:</strong> {{ item.username }}</li>
+                              <li><strong>Mot de passe initial:</strong> {{ item.password }}</li>
+                          </ul>
+                      </div>
+                      
+                      <div class="info-box">
+                          <h2>🔌 Commande de connexion SSH</h2>
+                          <p>Pour vous connecter au serveur, utilisez la commande suivante dans votre terminal :</p>
+                          <div class="command">ssh {{ item.username }}@{{ server_ip }} -p {{ ssh_port }}</div>
+                      </div>
+                      
+                      <div class="info-box">
+                          <h2>🔑 Configuration de votre clé SSH publique</h2>
+                          
+                          <p><strong>Linux / macOS :</strong></p>
+                          <div class="command">ssh-copy-id -i ~/.ssh/id_rsa.pub {{ item.username }}@{{ server_ip }} -p {{ ssh_port }}</div>
+                          
+                          <p><strong>Ou manuellement :</strong></p>
+                          <div class="command">cat ~/.ssh/id_rsa.pub | ssh {{ item.username }}@{{ server_ip }} -p {{ ssh_port }} "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"</div>
+                          
+                          <p><strong>Windows (PowerShell) :</strong></p>
+                          <div class="command">type $env:USERPROFILE\.ssh\id_rsa.pub | ssh {{ item.username }}@{{ server_ip }} -p {{ ssh_port }} "cat >> ~/.ssh/authorized_keys"</div>
+                      </div>
+                      
+                      <div class="warning">
+                          <h2>⚠️ IMPORTANT - Première connexion</h2>
+                          <ul>
+                              <li>Vous <strong>DEVEZ</strong> changer votre mot de passe lors de la première connexion</li>
+                              <li>Choisissez un mot de passe fort (12+ caractères, majuscules, minuscules, chiffres, symboles)</li>
+                              <li>Ne partagez jamais vos identifiants</li>
+                          </ul>
+                      </div>
+                      
+                      <div class="info-box">
+                          <h2>💾 Ressources allouées</h2>
+                          <ul>
+                              <li><strong>Quota disque:</strong> {{ disk_quota_gb }} Go maximum</li>
+                              <li><strong>Limite RAM:</strong> {{ ram_limit_mb }} Mo par processus (20% de la RAM totale)</li>
+                              <li><strong>Privilèges:</strong> Accès sudo (mais 'su' est désactivé)</li>
+                          </ul>
+                      </div>
+                      
+                      <div class="info-box">
+                          <h2>📞 Support technique</h2>
+                          <p>Pour toute question ou problème :</p>
+                          <ul>
+                              <li>Email: support@inf361.uy1.cm</li>
+                              <li>WhatsApp: +237 6XX XXX XXX</li>
+                          </ul>
+                      </div>
+                  </div>
+                  
+                  <div class="footer">
+                      <p>Cet email a été généré automatiquement via Ansible</p>
+                      <p>TP INF 3611 - Administration Systèmes et Réseaux</p>
+                      <p>© 2025 Université de Yaoundé I - Tous droits réservés</p>
+                  </div>
+              </div>
+          </body>
+          </html>
+      loop: "{{ users_data.users }}"
+      when: smtp_user != 'votre-email@gmail.com'
+      ignore_errors: yes
+
+    - name: "[9/12] Log - Emails envoyés"
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "[{{ ansible_date_time.iso8601 }}] Email envoyé à {{ item.email }} pour l'utilisateur {{ item.username }}"
+        create: yes
+      loop: "{{ users_data.users }}"
+      when: smtp_user != 'votre-email@gmail.com'
+
+    # ========================================================================
+    # PARTIE 9: Résumé et statistiques finales
+    # ========================================================================
+    
+    - name: "[10/12] Générer le résumé des opérations"
+      set_fact:
+        total_users: "{{ users_data.users | length }}"
+        
+    - name: "[10/12] Écrire le résumé dans le fichier de log"
+      blockinfile:
+        path: "{{ log_file }}"
+        block: |
+          =========================================================================
+          RÉSUMÉ DE L'EXÉCUTION - {{ ansible_date_time.iso8601 }}
+          =========================================================================
+          Serveur: {{ inventory_hostname }} ({{ server_ip }})
+          Groupe créé: {{ group_name }}
+          Nombre d'utilisateurs traités: {{ total_users }}
+          
+          Configuration système:
+          - Restriction 'su': Activée (groupe wheel uniquement)
+          - Quota disque: {{ disk_quota_gb }} Go par utilisateur
+          - Limite RAM: {{ ram_limit_mb }} Mo par processus (20% de {{ total_ram_mb }} Mo)
+          
+          Utilisateurs créés:
+          {% for user in users_data.users %}
+          - {{ user.username }} ({{ user.email }})
+          {% endfor %}
+          
+          Fichiers générés:
+          - Messages de bienvenue: /home/<username>/WELCOME.txt
+          - Limites système: /etc/security/limits.d/<username>.conf
+          
+          =========================================================================
+          FIN DE L'EXÉCUTION - Playbook terminé avec succès
+          =========================================================================
+        marker: "# {mark} ANSIBLE EXECUTION SUMMARY"
+        create: yes
+
+    - name: "[11/12] Afficher le résumé final"
+      debug:
+        msg:
+          - "========================================================================="
+          - "                    ✅ PLAYBOOK TERMINÉ AVEC SUCCÈS"
+          - "========================================================================="
+          - "Serveur: {{ inventory_hostname }}"
+          - "Groupe créé: {{ group_name }}"
+          - "Utilisateurs créés: {{ total_users }}"
+          - "Emails envoyés: {{ total_users if smtp_user != 'votre-email@gmail.com' else 0 }}"
+          - ""
+          - "Fichier de log: {{ log_file }}"
+          - "========================================================================="
+
+    - name: "[12/12] Créer un fichier récapitulatif"
+      copy:
+        dest: "/root/users_creation_summary_{{ ansible_date_time.epoch }}.txt"
+        content: |
+          RÉCAPITULATIF DE CRÉATION DES UTILISATEURS
+          ==========================================
+          Date: {{ ansible_date_time.iso8601 }}
+          Serveur: {{ inventory_hostname }} ({{ server_ip }})
+          
+          {% for user in users_data.users %}
+          Utilisateur: {{ user.username }}
+          - Nom complet: {{ user.full_name }}
+          - Email: {{ user.email }}
+          - Shell: {{ user.shell }}
+          - Commande SSH: ssh {{ user.username }}@{{ server_ip }} -p {{ ssh_port }}
+          
+          {% endfor %}
+        mode: '0600'
